@@ -1,0 +1,73 @@
+﻿SET_DATA_SEGMENT MACRO
+	MOV AX,@data								; Obtiene la dirección del segmento de datos
+	MOV DS,AX									; Asigna la dirección al registro de datos
+ENDM
+
+PRINT MACRO STRING						; Muestra la cadena pasada como parámetro en pantalla
+	MOV AH,09H									; INT Mostrar cadena en pantalla
+	LEA DX,STRING								; Cargar la dirección de memoria de la cadena
+	INT 21H										; Ejecutar interrupción
+ENDM
+
+EXIT MACRO
+	MOV AX,4C00H								; Salir a MS-DOS
+	INT 21H
+ENDM
+
+; *************************************************************************************************
+; MACRO GET_TIME
+
+; Esta macro obtiene la hora actual del sistema
+; El formato requerido soportado es hh:mm:ss que debe alojarse en BX
+; Esta macro modificará los contenidos de la dirección de memoria a la que apunta BX
+; Entrada 	: BX = Dirección de desplazamiento de la cadena de formato
+; Salida 	: BX = Hora actual aplicada al formato
+; *************************************************************************************************
+GET_TIME MACRO
+	PUSH AX                       				; Preserva el valor actual de AX en el STACK, STACK = [AX]
+	PUSH CX                       				; Preserva el valor actual de CX en el STACK, STACK = [AX, CX]
+
+	MOV AH, 2CH                   				; INT Obtener la hora actual del sistema
+														; Salida		: CH	= Hora
+														; 				: CL	= Minutos
+														;				: DH	= Segundos
+	INT 21H                       				; Ejecutar interrupción
+
+	CONVERT CH                  				; Convertir hora de binario a ASCII
+	MOV [BX], AX                  				; Setea la cadena ASCII de la hora en la localidad de memoria correspondiente al valor de BX
+														; [hh]:mm:ss
+														; [BX] = Hora en ASCII
+														
+	CONVERT CL                  				; Convertir los minutos a ASCII
+	MOV [BX+3], AX                			; Setea la cadena ASCII de los minutos en la localidad de memoria correspondiente al valor de BX + 3
+														; hh:[mm]:ss
+														; [BX+3] = Minutos en ASCII
+
+	CONVERT DH									; Convierte los segundos a ASCII
+	MOV [BX+6], AX							; Setea la cadena ASCII de los segundos en la localidad de memoria correspondiente al valor de BX + 6
+														; hh:mm:[ss]
+														; [BX+6] = Segundos en ASCII
+	
+	POP CX											; Asigna el siguiente valor del STACK a CX, STACK = [AX]
+	POP AX                        					; Asigna el siguiente valor del STACK a AX, STACK = []
+ENDM												; Fin de la macro
+
+; *************************************************************************************************
+; MACRO CONVERT
+
+; Convierte un código binario a su representación ASCII
+; Entrada	: BCD = Código binario
+; Salida		: AX   = Código ASCII
+; *************************************************************************************************
+CONVERT MACRO BCD
+	PUSH DX                       				; Preserva el valor actual de DX en el STACK, STACK = [AX, CX, DX]
+
+	MOV AL, BCD
+	MOV	AH, 0                     				; Setea el residuo	AH = 0
+	MOV	DL, 10                    				; Setear el divisor	DL = 10
+	DIV	DL                        				; Dividir  				AX = AX / DL
+	OR	AX, 3030H                  			; Convertir el código binario en ASCII
+														; Suma 30H a los registros AH y AL para convertirlos a números
+
+	POP DX                        					; Asigna el siguiente valor del STACK a DX, STACK = [AX, CX]
+ENDM                   								; Fin de la macro
